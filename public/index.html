@@ -1,0 +1,418 @@
+<!DOCTYPE html>
+<html lang="km">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Transcribe API - ប្រព័ន្ធស្វ័យប្រវត្តិចម្លងសំឡេង</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: linear-gradient(135deg, #0f0c29, #302b63, #24243e);
+            color: #fff;
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            padding: 2rem 1rem;
+        }
+        .container {
+            max-width: 700px;
+            width: 100%;
+        }
+        h1 {
+            text-align: center;
+            font-size: 2rem;
+            margin-bottom: 0.5rem;
+            background: linear-gradient(90deg, #00d2ff, #3a7bd5);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+        .subtitle {
+            text-align: center;
+            color: #aaa;
+            margin-bottom: 2rem;
+            font-size: 0.95rem;
+        }
+        .card {
+            background: rgba(255,255,255,0.08);
+            backdrop-filter: blur(12px);
+            border-radius: 16px;
+            padding: 2rem;
+            margin-bottom: 1.5rem;
+            border: 1px solid rgba(255,255,255,0.1);
+        }
+        .card h2 {
+            font-size: 1.2rem;
+            margin-bottom: 1rem;
+            color: #00d2ff;
+        }
+        .drop-zone {
+            border: 2px dashed rgba(255,255,255,0.3);
+            border-radius: 12px;
+            padding: 2.5rem 1rem;
+            text-align: center;
+            cursor: pointer;
+            transition: all 0.3s;
+            position: relative;
+        }
+        .drop-zone:hover, .drop-zone.dragover {
+            border-color: #00d2ff;
+            background: rgba(0,210,255,0.08);
+        }
+        .drop-zone input[type="file"] {
+            display: none;
+        }
+        .drop-zone .icon {
+            font-size: 3rem;
+            margin-bottom: 0.5rem;
+        }
+        .drop-zone p {
+            color: #ccc;
+        }
+        .drop-zone .file-name {
+            margin-top: 0.5rem;
+            color: #00d2ff;
+            font-weight: 600;
+        }
+        .btn {
+            display: inline-block;
+            padding: 0.8rem 2rem;
+            border: none;
+            border-radius: 8px;
+            font-size: 1rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s;
+            width: 100%;
+            margin-top: 1rem;
+        }
+        .btn-primary {
+            background: linear-gradient(90deg, #00d2ff, #3a7bd5);
+            color: #fff;
+        }
+        .btn-primary:hover { opacity: 0.9; transform: translateY(-1px); }
+        .btn-primary:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+            transform: none;
+        }
+        .status-box {
+            background: rgba(0,0,0,0.3);
+            border-radius: 8px;
+            padding: 1rem;
+            margin-top: 1rem;
+            min-height: 3rem;
+            font-family: monospace;
+            font-size: 0.9rem;
+            white-space: pre-wrap;
+            word-break: break-word;
+        }
+        .status-box.loading { border-left: 3px solid #ffc107; }
+        .status-box.success { border-left: 3px solid #28a745; }
+        .status-box.error { border-left: 3px solid #dc3545; }
+        .result-box {
+            background: rgba(0,0,0,0.4);
+            border-radius: 8px;
+            padding: 1.2rem;
+            margin-top: 1rem;
+            line-height: 1.6;
+            display: none;
+        }
+        .result-box.show { display: block; }
+        .result-box .label {
+            color: #00d2ff;
+            font-weight: 600;
+            margin-bottom: 0.5rem;
+        }
+        .result-box .text {
+            color: #e0e0e0;
+        }
+        .result-box .meta {
+            margin-top: 0.8rem;
+            font-size: 0.85rem;
+            color: #aaa;
+        }
+        .badge {
+            display: inline-block;
+            padding: 0.2rem 0.6rem;
+            border-radius: 4px;
+            font-size: 0.75rem;
+            font-weight: 600;
+        }
+        .badge-success { background: #28a745; color: #fff; }
+        .badge-info { background: #17a2b8; color: #fff; }
+        .footer {
+            text-align: center;
+            color: #666;
+            font-size: 0.8rem;
+            margin-top: 2rem;
+        }
+        .loading-spinner {
+            display: inline-block;
+            width: 1rem;
+            height: 1rem;
+            border: 2px solid rgba(255,255,255,0.3);
+            border-top-color: #fff;
+            border-radius: 50%;
+            animation: spin 0.6s linear infinite;
+            margin-right: 0.5rem;
+            vertical-align: middle;
+        }
+        @keyframes spin { to { transform: rotate(360deg); } }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🎙 Transcribe API</h1>
+        <p class="subtitle">ប្រព័ន្ធស្វ័យប្រវត្តិចម្លងសំឡេងទៅជាអក្សរ (Audio to Text)</p>
+
+        <!-- Upload Card -->
+        <div class="card">
+            <h2>📤 ផ្ទុកឯកសារសំឡេង</h2>
+            <div class="drop-zone" id="dropZone">
+                <div class="icon">🎵</div>
+                <p>ចុច ឬអូសឯកសារសំឡេងមកទីនេះ</p>
+                <p style="font-size:0.8rem;color:#888;margin-top:0.3rem;">MP3, WAV, M4A, AAC, OGG (max 500MB)</p>
+                <div class="file-name" id="fileName"></div>
+                <input type="file" id="fileInput" accept=".mp3,.wav,.m4a,.mp4,.aac,.ogg" />
+            </div>
+            <button class="btn btn-primary" id="uploadBtn" disabled>
+                🚀 ចាប់ផ្ដើមចម្លង
+            </button>
+            <div class="status-box" id="statusBox">⏳ រង់ចាំជ្រើសរើសឯកសារ...</div>
+        </div>
+
+        <!-- Result Card -->
+        <div class="card">
+            <h2>📝 លទ្ធផលចម្លង</h2>
+            <div class="result-box" id="resultBox">
+                <div class="label">អត្ថបទចម្លង</div>
+                <div class="text" id="resultText"></div>
+                <div class="meta" id="resultMeta"></div>
+            </div>
+        </div>
+
+        <!-- Status Check Card -->
+        <div class="card">
+            <h2>🔍 ពិនិត្យស្ថានភាពការងារ</h2>
+            <p style="color:#ccc;font-size:0.9rem;margin-bottom:0.8rem;">
+                បញ្ចូលលេខសម្គាល់ការងារ (Job ID) ដែលទទួលបានក្រោយផ្ទុកឯកសារ
+            </p>
+            <div style="display:flex;gap:0.5rem;">
+                <input type="text" id="jobIdInput" placeholder="បញ្ចូល Job ID..." 
+                       style="flex:1;padding:0.7rem;border-radius:6px;border:1px solid rgba(255,255,255,0.2);
+                              background:rgba(0,0,0,0.3);color:#fff;font-size:0.9rem;" />
+                <button class="btn btn-primary" id="checkBtn" style="width:auto;padding:0.7rem 1.2rem;margin-top:0;">
+                    ពិនិត្យ
+                </button>
+            </div>
+            <div class="status-box" id="checkStatus" style="margin-top:0.8rem;">បញ្ចូល Job ID ដើម្បីពិនិត្យ</div>
+        </div>
+
+        <div class="footer">
+            Transcribe API v1.0 &mdash; Powered by Faster-Whisper
+        </div>
+    </div>
+
+    <script>
+        const API_BASE = window.location.origin;
+
+        // DOM elements
+        const dropZone = document.getElementById('dropZone');
+        const fileInput = document.getElementById('fileInput');
+        const fileName = document.getElementById('fileName');
+        const uploadBtn = document.getElementById('uploadBtn');
+        const statusBox = document.getElementById('statusBox');
+        const resultBox = document.getElementById('resultBox');
+        const resultText = document.getElementById('resultText');
+        const resultMeta = document.getElementById('resultMeta');
+        const jobIdInput = document.getElementById('jobIdInput');
+        const checkBtn = document.getElementById('checkBtn');
+        const checkStatus = document.getElementById('checkStatus');
+
+        let selectedFile = null;
+
+        // ========== Drag & Drop ==========
+        dropZone.addEventListener('click', () => fileInput.click());
+
+        dropZone.addEventListener('dragover', (e) => {
+            e.preventDefault();
+            dropZone.classList.add('dragover');
+        });
+
+        dropZone.addEventListener('dragleave', () => {
+            dropZone.classList.remove('dragover');
+        });
+
+        dropZone.addEventListener('drop', (e) => {
+            e.preventDefault();
+            dropZone.classList.remove('dragover');
+            if (e.dataTransfer.files.length > 0) {
+                handleFile(e.dataTransfer.files[0]);
+            }
+        });
+
+        fileInput.addEventListener('change', () => {
+            if (fileInput.files.length > 0) {
+                handleFile(fileInput.files[0]);
+            }
+        });
+
+        function handleFile(file) {
+            selectedFile = file;
+            fileName.textContent = `📄 ${file.name} (${(file.size / 1024 / 1024).toFixed(2)} MB)`;
+            uploadBtn.disabled = false;
+            statusBox.textContent = '✅ បានជ្រើសរើសឯកសារ។ ចុច "ចាប់ផ្ដើមចម្លង" ដើម្បីបន្ត។';
+            statusBox.className = 'status-box';
+        }
+
+        // ========== Upload ==========
+        uploadBtn.addEventListener('click', async () => {
+            if (!selectedFile) return;
+
+            uploadBtn.disabled = true;
+            uploadBtn.textContent = '⏳ កំពុងដំណើរការ...';
+            statusBox.innerHTML = '<span class="loading-spinner"></span> កំពុងផ្ទុកឯកសារ...';
+            statusBox.className = 'status-box loading';
+            resultBox.classList.remove('show');
+
+            const formData = new FormData();
+            formData.append('audio', selectedFile);
+
+            try {
+                const res = await fetch(`${API_BASE}/api/upload`, {
+                    method: 'POST',
+                    body: formData
+                });
+
+                const data = await res.json();
+
+                if (!data.success) {
+                    throw new Error(data.message || 'Upload failed');
+                }
+
+                statusBox.innerHTML = `✅ ផ្ទុកឯកសារជោគជ័យ! Job ID: <strong>${data.jobId}</strong>`;
+                statusBox.className = 'status-box success';
+                jobIdInput.value = data.jobId;
+
+                // Start polling for result
+                pollJobStatus(data.jobId);
+
+            } catch (err) {
+                statusBox.textContent = `❌ បរាជ័យ: ${err.message}`;
+                statusBox.className = 'status-box error';
+                uploadBtn.disabled = false;
+                uploadBtn.textContent = '🚀 ចាប់ផ្ដើមចម្លង';
+            }
+        });
+
+        // ========== Poll Job Status ==========
+        async function pollJobStatus(jobId) {
+            const maxAttempts = 60;  // 5 minutes
+            let attempts = 0;
+
+            const poll = setInterval(async () => {
+                attempts++;
+
+                try {
+                    const res = await fetch(`${API_BASE}/api/status/${jobId}`);
+                    const data = await res.json();
+
+                    if (!data.success) {
+                        clearInterval(poll);
+                        statusBox.textContent = `❌ រកមិនឃើញការងារ: ${jobId}`;
+                        statusBox.className = 'status-box error';
+                        resetUploadBtn();
+                        return;
+                    }
+
+                    const job = data.job;
+                    statusBox.innerHTML = `⏳ ស្ថានភាព: <span class="badge badge-info">${job.status}</span> (កំពុងរង់ចាំលទ្ធផល...)`;
+
+                    if (job.status === 'done') {
+                        clearInterval(poll);
+                        statusBox.innerHTML = `✅ ចម្លងជោគជ័យ! <span class="badge badge-success">done</span>`;
+                        statusBox.className = 'status-box success';
+
+                        // Show result
+                        resultText.textContent = job.result || 'គ្មានអត្ថបទ';
+                        resultMeta.textContent = `ភាសា: ${job.language || 'មិនស្គាល់'} | ឯកសារ: ${job.originalName || ''}`;
+                        resultBox.classList.add('show');
+
+                        resetUploadBtn();
+                    }
+
+                    if (job.status === 'failed') {
+                        clearInterval(poll);
+                        statusBox.textContent = `❌ ចម្លងបរាជ័យ។ សូមព្យាយាមម្ដងទៀត។`;
+                        statusBox.className = 'status-box error';
+                        resetUploadBtn();
+                    }
+
+                    if (attempts >= maxAttempts) {
+                        clearInterval(poll);
+                        statusBox.textContent = `⏰ អស់ពេលកំណត់។ សូមពិនិត្យ Job ID ក្រោយ។`;
+                        statusBox.className = 'status-box error';
+                        resetUploadBtn();
+                    }
+
+                } catch (err) {
+                    clearInterval(poll);
+                    statusBox.textContent = `❌ កំហុស: ${err.message}`;
+                    statusBox.className = 'status-box error';
+                    resetUploadBtn();
+                }
+            }, 5000);
+        }
+
+        function resetUploadBtn() {
+            uploadBtn.disabled = false;
+            uploadBtn.textContent = '🚀 ចាប់ផ្ដើមចម្លង';
+        }
+
+        // ========== Check Job Status Manually ==========
+        checkBtn.addEventListener('click', async () => {
+            const jobId = jobIdInput.value.trim();
+            if (!jobId) {
+                checkStatus.textContent = '⚠ សូមបញ្ចូល Job ID';
+                checkStatus.className = 'status-box error';
+                return;
+            }
+
+            checkStatus.innerHTML = '<span class="loading-spinner"></span> កំពុងពិនិត្យ...';
+            checkStatus.className = 'status-box loading';
+
+            try {
+                const res = await fetch(`${API_BASE}/api/status/${jobId}`);
+                const data = await res.json();
+
+                if (!data.success) {
+                    checkStatus.textContent = `❌ រកមិនឃើញការងារ: ${jobId}`;
+                    checkStatus.className = 'status-box error';
+                    return;
+                }
+
+                const job = data.job;
+                checkStatus.innerHTML = `
+                    ✅ ស្ថានភាព: <span class="badge badge-info">${job.status}</span><br/>
+                    📄 ឯកសារ: ${job.originalName || 'N/A'}<br/>
+                    🆔 Job ID: ${job.jobId}
+                    ${job.result ? `<br/>📝 លទ្ធផល: ${job.result.substring(0, 200)}...` : ''}
+                `;
+                checkStatus.className = 'status-box success';
+
+                if (job.status === 'done' && job.result) {
+                    resultText.textContent = job.result;
+                    resultMeta.textContent = `ភាសា: ${job.language || 'មិនស្គាល់'}`;
+                    resultBox.classList.add('show');
+                }
+
+            } catch (err) {
+                checkStatus.textContent = `❌ កំហុស: ${err.message}`;
+                checkStatus.className = 'status-box error';
+            }
+        });
+    </script>
+</body>
+</html>

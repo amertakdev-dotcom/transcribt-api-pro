@@ -1,0 +1,70 @@
+# =====================
+# Node
+# =====================
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# =====================
+# Python
+# =====================
+__pycache__/
+*.pyc
+*.pyo
+*.egg-info/
+dist/
+build/
+*.egg
+
+# =====================
+# Environment
+# =====================
+.env
+.venv/
+venv/
+
+# =====================
+# Uploads (keep gitkeep)
+# =====================
+uploads/*
+!uploads/.gitkeep
+
+ai-service/uploads/*
+!ai-service/uploads/.gitkeep
+
+# =====================
+# Outputs (keep gitkeep)
+# =====================
+outputs/*
+!outputs/.gitkeep
+
+outputs/json/*
+!outputs/json/.gitkeep
+outputs/srt/*
+!outputs/srt/.gitkeep
+outputs/txt/*
+!outputs/txt/.gitkeep
+
+# =====================
+# Logs
+# =====================
+*.log
+
+# =====================
+# OS
+# =====================
+.DS_Store
+Thumbs.db
+*.swp
+*.swo
+
+# =====================
+# IDE
+# =====================
+.idea/
+.vscode/
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
