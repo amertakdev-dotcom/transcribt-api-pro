@@ -27,6 +27,23 @@ const jobSchema = new mongoose.Schema(
         language: {
             type: String,
             default: null
+        },
+
+        // Translation fields
+        targetLanguage: {
+            type: String,
+            default: null
+        },
+
+        translatedResult: {
+            type: String,
+            default: null
+        },
+
+        translationStatus: {
+            type: String,
+            enum: ["none", "translating", "done", "failed"],
+            default: "none"
         }
     },
     {

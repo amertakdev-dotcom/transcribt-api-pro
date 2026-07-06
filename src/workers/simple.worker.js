@@ -27,6 +27,27 @@ async function callAIService(filePath) {
 }
 
 /**
+ * Call Python AI service to translate text
+ */
+async function callTranslationService(text, sourceLang, targetLang) {
+    const aiUrl = process.env.AI_SERVICE_URL || "http://localhost:8000";
+
+    const params = new URLSearchParams();
+    params.append("text", text);
+    params.append("source_lang", sourceLang);
+    params.append("target_lang", targetLang);
+
+    const response = await axios.post(`${aiUrl}/translate`, params, {
+        headers: {
+            "Content-Type": "application/x-www-form-urlencoded"
+        },
+        timeout: 60000 // 1 minute for translation
+    });
+
+    return response.data;
+}
+
+/**
  * Process a single job
  */
 async function processJob(job) {
@@ -42,16 +63,47 @@ async function processJob(job) {
             throw new Error(`File not found: ${job.filePath}`);
         }
 
-        // Call AI service
+        // Call AI service for transcription
         const result = await callAIService(job.filePath);
 
-        // Save result
+        // Save transcription result
         job.status = "done";
         job.result = result.text;
         job.language = result.language || null;
         await job.save();
 
-        console.log("✔ Done:", job.jobId, "| Language:", result.language);
+        console.log("✔ Done transcribing:", job.jobId, "| Language:", result.language);
+
+        // If targetLanguage is set and transcription succeeded, translate
+        if (job.targetLanguage && job.targetLanguage !== job.language) {
+            console.log("▶ Translating:", job.jobId, "from", result.language, "to", job.targetLanguage);
+
+            job.translationStatus = "translating";
+            await job.save();
+
+            try {
+                const translateResult = await callTranslationService(
+                    result.text,
+                    result.language || "auto",
+                    job.targetLanguage
+                );
+
+                if (translateResult.success && translateResult.translated_text) {
+                    job.translatedResult = translateResult.translated_text;
+                    job.translationStatus = "done";
+                    await job.save();
+                    console.log("✔ Translation done:", job.jobId);
+                } else {
+                    job.translationStatus = "failed";
+                    await job.save();
+                    console.error("✖ Translation failed:", job.jobId, "|", translateResult.error);
+                }
+            } catch (transErr) {
+                job.translationStatus = "failed";
+                await job.save();
+                console.error("✖ Translation error:", job.jobId, "|", transErr.message);
+            }
+        }
 
         // Cleanup uploaded file
         try {

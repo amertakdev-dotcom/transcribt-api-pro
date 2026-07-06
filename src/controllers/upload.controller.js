@@ -16,6 +16,9 @@ exports.upload = async (req, res) => {
         // jobId from middleware (or generate fallback)
         const jobId = req.jobId || Date.now().toString();
 
+        // Get target language from body (optional)
+        const targetLanguage = req.body.targetLanguage || null;
+
         // 🟢 CREATE JOB IN DATABASE
         const job = await Job.create({
             jobId: jobId,
@@ -24,7 +27,9 @@ exports.upload = async (req, res) => {
             fileName: req.file.filename,
             size: req.file.size,
             status: "queued",
-            result: null
+            result: null,
+            targetLanguage: targetLanguage,
+            translationStatus: targetLanguage ? "none" : "none"
         });
 
         // response
@@ -34,7 +39,8 @@ exports.upload = async (req, res) => {
             filename: job.fileName,
             originalName: job.originalName,
             size: job.size,
-            status: job.status
+            status: job.status,
+            targetLanguage: job.targetLanguage
         });
 
     } catch (err) {

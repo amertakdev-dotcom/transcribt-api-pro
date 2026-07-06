@@ -170,6 +170,26 @@
         <!-- Upload Card -->
         <div class="card">
             <h2>📤 ផ្ទុកឯកសារសំឡេង</h2>
+
+            <!-- Language Selection -->
+            <div style="margin-bottom:1rem;">
+                <label style="color:#aaa;font-size:0.9rem;display:block;margin-bottom:0.4rem;">🌐 បកប្រែទៅជា (Translate to):</label>
+                <div style="display:flex;gap:0.5rem;flex-wrap:wrap;">
+                    <label class="lang-option" data-lang="none" style="flex:1;min-width:80px;padding:0.5rem;border-radius:8px;border:2px solid rgba(255,255,255,0.2);text-align:center;cursor:pointer;transition:all 0.3s;background:rgba(0,210,255,0.15);border-color:#00d2ff;font-weight:600;">
+                        <input type="radio" name="targetLang" value="none" checked style="display:none;" />
+                        🚫 គ្មាន
+                    </label>
+                    <label class="lang-option" data-lang="km" style="flex:1;min-width:80px;padding:0.5rem;border-radius:8px;border:2px solid rgba(255,255,255,0.2);text-align:center;cursor:pointer;transition:all 0.3s;">
+                        <input type="radio" name="targetLang" value="km" style="display:none;" />
+                        🇰🇭 ខ្មែរ
+                    </label>
+                    <label class="lang-option" data-lang="en" style="flex:1;min-width:80px;padding:0.5rem;border-radius:8px;border:2px solid rgba(255,255,255,0.2);text-align:center;cursor:pointer;transition:all 0.3s;">
+                        <input type="radio" name="targetLang" value="en" style="display:none;" />
+                        🇺🇸 English
+                    </label>
+                </div>
+            </div>
+
             <div class="drop-zone" id="dropZone">
                 <div class="icon">🎵</div>
                 <p>ចុច ឬអូសឯកសារសំឡេងមកទីនេះ</p>
@@ -186,10 +206,19 @@
         <!-- Result Card -->
         <div class="card">
             <h2>📝 លទ្ធផលចម្លង</h2>
+
+            <!-- Original transcription -->
             <div class="result-box" id="resultBox">
-                <div class="label">អត្ថបទចម្លង</div>
+                <div class="label">📄 អត្ថបទដើម (Original)</div>
                 <div class="text" id="resultText"></div>
                 <div class="meta" id="resultMeta"></div>
+            </div>
+
+            <!-- Translated text (shown only if translation done) -->
+            <div class="result-box" id="translatedBox">
+                <div class="label">🌐 អត្ថបទបកប្រែ (Translated)</div>
+                <div class="text" id="translatedText"></div>
+                <div class="meta" id="translatedMeta"></div>
             </div>
         </div>
 
@@ -216,7 +245,7 @@
     </div>
 
     <script>
-        const API_BASE = window.location.origin;
+        const API_BASE = 'https://transcribt-api-pro.onrender.com';
 
         // DOM elements
         const dropZone = document.getElementById('dropZone');
@@ -227,11 +256,37 @@
         const resultBox = document.getElementById('resultBox');
         const resultText = document.getElementById('resultText');
         const resultMeta = document.getElementById('resultMeta');
+        const translatedBox = document.getElementById('translatedBox');
+        const translatedText = document.getElementById('translatedText');
+        const translatedMeta = document.getElementById('translatedMeta');
         const jobIdInput = document.getElementById('jobIdInput');
         const checkBtn = document.getElementById('checkBtn');
         const checkStatus = document.getElementById('checkStatus');
+        const langOptions = document.querySelectorAll('.lang-option');
 
         let selectedFile = null;
+        let selectedTargetLang = null;
+
+        // ========== Language Selection ==========
+        langOptions.forEach(opt => {
+            opt.addEventListener('click', () => {
+                const radio = opt.querySelector('input[type="radio"]');
+                if (!radio) return;
+                radio.checked = true;
+                // Reset all styles
+                langOptions.forEach(o => {
+                    o.style.background = 'transparent';
+                    o.style.borderColor = 'rgba(255,255,255,0.2)';
+                    o.style.fontWeight = 'normal';
+                });
+                // Highlight selected
+                opt.style.background = 'rgba(0,210,255,0.15)';
+                opt.style.borderColor = '#00d2ff';
+                opt.style.fontWeight = '600';
+                const val = radio.value;
+                selectedTargetLang = val === 'none' ? null : val;
+            });
+        });
 
         // ========== Drag & Drop ==========
         dropZone.addEventListener('click', () => fileInput.click());
@@ -279,6 +334,9 @@
 
             const formData = new FormData();
             formData.append('audio', selectedFile);
+            if (selectedTargetLang) {
+                formData.append('targetLanguage', selectedTargetLang);
+            }
 
             try {
                 const res = await fetch(`${API_BASE}/api/upload`, {
@@ -308,6 +366,18 @@
         });
 
         // ========== Poll Job Status ==========
+        function displayTranslation(job) {
+            if (job.translatedResult && job.translationStatus === 'done') {
+                const langNames = { 'km': 'ខ្មែរ', 'en': 'English' };
+                const targetLangName = langNames[job.targetLanguage] || job.targetLanguage || '';
+                translatedText.textContent = job.translatedResult;
+                translatedMeta.textContent = `បកប្រែទៅ: ${targetLangName}`;
+                translatedBox.classList.add('show');
+            } else {
+                translatedBox.classList.remove('show');
+            }
+        }
+
         async function pollJobStatus(jobId) {
             const maxAttempts = 60;  // 5 minutes
             let attempts = 0;
@@ -328,17 +398,35 @@
                     }
 
                     const job = data.job;
-                    statusBox.innerHTML = `⏳ ស្ថានភាព: <span class="badge badge-info">${job.status}</span> (កំពុងរង់ចាំលទ្ធផល...)`;
+
+                    // Update status message with translation info
+                    let statusMsg = `⏳ ស្ថានភាព: <span class="badge badge-info">${job.status}</span>`;
+                    if (job.translationStatus === 'translating') {
+                        statusMsg += ` 🌐 កំពុងបកប្រែ...`;
+                    } else if (job.status === 'done' && job.translationStatus === 'done') {
+                        statusMsg += ` 🌐 បកប្រែរួច`;
+                    } else {
+                        statusMsg += ` (កំពុងរង់ចាំលទ្ធផល...)`;
+                    }
+                    statusBox.innerHTML = statusMsg;
 
                     if (job.status === 'done') {
                         clearInterval(poll);
                         statusBox.innerHTML = `✅ ចម្លងជោគជ័យ! <span class="badge badge-success">done</span>`;
+                        if (job.translationStatus === 'done') {
+                            statusBox.innerHTML += ` 🌐 <span class="badge badge-success">បកប្រែរួច</span>`;
+                        } else if (job.translationStatus === 'failed') {
+                            statusBox.innerHTML += ` ⚠️ <span class="badge badge-info">បកប្រែមិនជោគជ័យ</span>`;
+                        }
                         statusBox.className = 'status-box success';
 
                         // Show result
                         resultText.textContent = job.result || 'គ្មានអត្ថបទ';
                         resultMeta.textContent = `ភាសា: ${job.language || 'មិនស្គាល់'} | ឯកសារ: ${job.originalName || ''}`;
                         resultBox.classList.add('show');
+
+                        // Show translation if available
+                        displayTranslation(job);
 
                         resetUploadBtn();
                     }
@@ -406,6 +494,8 @@
                     resultText.textContent = job.result;
                     resultMeta.textContent = `ភាសា: ${job.language || 'មិនស្គាល់'}`;
                     resultBox.classList.add('show');
+                    // Show translation if available
+                    displayTranslation(job);
                 }
 
             } catch (err) {

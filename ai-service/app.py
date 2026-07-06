@@ -1,6 +1,7 @@
-from fastapi import FastAPI, File, UploadFile
+from fastapi import FastAPI, File, UploadFile, Form
 from fastapi.middleware.cors import CORSMiddleware
 from faster_whisper import WhisperModel
+from googletrans import Translator
 import shutil
 import uuid
 import os
@@ -21,9 +22,11 @@ app.add_middleware(
 # CPU model (Render compatible)
 model = WhisperModel("base", compute_type="int8")
 
+# Google Translate client
+translator = Translator()
+
 UPLOAD_DIR = "uploads"
 os.makedirs(UPLOAD_DIR, exist_ok=True)
-
 
 @app.get("/health")
 async def health():
@@ -61,3 +64,33 @@ async def transcribe(file: UploadFile = File(...)):
         "language": info.language,
         "duration_seconds": info.duration if hasattr(info, "duration") else None
     }
+
+
+@app.post("/translate")
+async def translate(
+    text: str = Form(...),
+    source_lang: str = Form(...),
+    target_lang: str = Form(...)
+):
+    """
+    Translate text from source_lang to target_lang.
+    If source_lang is 'auto', auto-detect the language.
+    """
+    try:
+        src = source_lang if source_lang != "auto" else None
+        result = translator.translate(text, src=src, dest=target_lang)
+
+        return {
+            "success": True,
+            "translated_text": result.text,
+            "source_lang": result.src if hasattr(result, "src") else source_lang,
+            "target_lang": target_lang
+        }
+    except Exception as e:
+        return {
+            "success": False,
+            "error": str(e),
+            "translated_text": None,
+            "source_lang": source_lang,
+            "target_lang": target_lang
+        }
